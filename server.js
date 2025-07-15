@@ -11,9 +11,69 @@ connectDB();
 
 const app = express();
 
+// CORS configuration for production and development
+// Additional security headers for production
+app.use((req, res, next) => {
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'DENY');
+  res.header('X-XSS-Protection', '1; mode=block');
+  res.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Request logging middleware for production
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.path} - IP: ${req.ip}`);
+  next();
+});
+
+// CORS configuration for production
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://xzmovies.me',
+      'https://www.xzmovies.me',
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS policy:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'Pragma'
+  ],
+  exposedHeaders: ['Authorization'],
+  maxAge: 86400 // 24 hours
+};
+
+// Apply CORS middleware early
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
+
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -24,15 +84,53 @@ app.use('/api/admin', require('./routes/admin'));
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({ 
-    message: 'Movie App API is running!', 
+    message: 'XZMovies API is running successfully!', 
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV 
+    environment: process.env.NODE_ENV || 'development',
+    status: 'healthy',
+    version: '1.0.0'
+  });
+});
+
+// API info route
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'XZMovies API',
+    version: '1.0.0',
+    description: 'Backend API for XZMovies - Movie Discovery Platform',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      reviews: '/api/reviews',
+      admin: '/api/admin',
+      health: '/api/health'
+    }
+  });
+});
+
+// Global error handler for production
+app.use((error, req, res, next) => {
+  console.error(`[ERROR] ${new Date().toISOString()}:`, error);
+  
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  res.status(error.status || 500).json({
+    success: false,
+    message: error.message || 'Internal Server Error',
+    ...(isDevelopment && { stack: error.stack }),
+    timestamp: new Date().toISOString()
   });
 });
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({ 
+    success: false,
+    message: 'Route not found',
+    path: req.originalUrl,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Global error handler
