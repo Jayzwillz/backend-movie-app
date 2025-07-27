@@ -78,6 +78,23 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+
+// Debug middleware specifically for reviews
+app.use('/api/reviews', (req, res, next) => {
+  console.log('\n🎬 === REVIEWS API REQUEST ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Headers:', {
+    authorization: req.headers.authorization ? 'Bearer [TOKEN]' : 'None',
+    'content-type': req.headers['content-type']
+  });
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('Body:', req.body);
+  }
+  console.log('=================================\n');
+  next();
+});
+
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/admin', require('./routes/admin'));
 
@@ -130,15 +147,6 @@ app.use('*', (req, res) => {
     message: 'Route not found',
     path: req.originalUrl,
     timestamp: new Date().toISOString()
-  });
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    message: 'Something went wrong!', 
-    error: process.env.NODE_ENV === 'development' ? err.message : {} 
   });
 });
 

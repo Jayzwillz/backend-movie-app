@@ -2,10 +2,9 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // MongoDB connection options
+    // MongoDB connection options (removed deprecated options)
     const options = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      // No deprecated options needed for MongoDB Driver 4.0+
     };
 
     const conn = await mongoose.connect(process.env.MONGODB_URI, options);
