@@ -120,7 +120,7 @@ router.post('/analyze-reviews/:movieId', async (req, res) => {
     const { movieTitle, tmdbReviews = [] } = req.body;
 
     // Get user reviews from database
-    const userReviews = await Review.find({ movieId }).populate('user', 'name');
+    const userReviews = await Review.find({ movieId }).populate('userId', 'name');
 
     // Combine TMDB and user reviews
     const allReviews = [
@@ -133,7 +133,7 @@ router.post('/analyze-reviews/:movieId', async (req, res) => {
       ...userReviews.map(review => ({
         content: review.comment,
         rating: review.rating,
-        author: review.user.name,
+        author: review.userId?.name || 'Anonymous User',
         source: 'user'
       }))
     ];

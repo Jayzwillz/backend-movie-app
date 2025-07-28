@@ -111,21 +111,49 @@ Examples of what to extract:
   // AI-Powered Review Analysis & Summary
   async analyzeReviews(reviews, movieTitle) {
     try {
+      if (!reviews || reviews.length === 0) {
+        return {
+          overall_sentiment: { score: 0, label: "No Reviews", explanation: "No reviews available for analysis" },
+          summary: "No reviews to analyze",
+          pros: [],
+          cons: [],
+          key_themes: [],
+          target_audience: { primary: "Unknown", secondary: "Unknown", avoid_if: "Unknown" },
+          critics_vs_audience: "No data available",
+          recommendation: "No reviews available for recommendation",
+          confidence: 0
+        };
+      }
+
       const reviewTexts = reviews.map(r => ({
         text: r.content || r.comment,
         rating: r.rating || r.author_details?.rating,
         author: r.author || r.user?.name
-      })).slice(0, 50); // Limit to 50 reviews for analysis
+      })).filter(r => r.text && r.text.trim().length > 0).slice(0, 30); // Limit to 30 reviews and filter empty content
+
+      if (reviewTexts.length === 0) {
+        return {
+          overall_sentiment: { score: 0, label: "No Content", explanation: "No review content available for analysis" },
+          summary: "No meaningful review content to analyze",
+          pros: [],
+          cons: [],
+          key_themes: [],
+          target_audience: { primary: "Unknown", secondary: "Unknown", avoid_if: "Unknown" },
+          critics_vs_audience: "No data available",
+          recommendation: "No content available for recommendation",
+          confidence: 0
+        };
+      }
 
       const prompt = `Analyze these movie reviews for "${movieTitle}" and provide comprehensive insights.
 
 Reviews Data: ${JSON.stringify(reviewTexts)}
 
-Provide analysis in this JSON format:
+Provide analysis in this exact JSON format (no additional text):
 {
   "overall_sentiment": {
     "score": 7.5,
-    "label": "Positive/Negative/Mixed",
+    "label": "Positive",
     "explanation": "Overall sentiment explanation"
   },
   "summary": "2-3 sentence summary of all reviews",
@@ -140,18 +168,35 @@ Provide analysis in this JSON format:
   "critics_vs_audience": "Comparison if both types of reviews present",
   "recommendation": "Final recommendation based on reviews",
   "confidence": 85
-}
-
-Focus on extracting meaningful insights that help users decide whether to watch the movie.`;
+}`;
 
       const result = await this.model.generateContent(prompt);
       const response = result.response.text();
       
+      console.log('Raw Gemini response for reviews:', response.substring(0, 200) + '...');
+      
       const cleanedResponse = this.cleanJsonResponse(response);
-      return JSON.parse(cleanedResponse);
+      const parsedResponse = JSON.parse(cleanedResponse);
+      
+      console.log('Successfully parsed review analysis');
+      return parsedResponse;
     } catch (error) {
       console.error('Gemini Review Analysis Error:', error);
-      throw new Error('Failed to analyze reviews');
+      console.error('Error details:', error.message);
+      
+      // Return a fallback response instead of throwing
+      return {
+        overall_sentiment: { score: 5, label: "Analysis Failed", explanation: "Unable to analyze reviews at this time" },
+        summary: "Review analysis temporarily unavailable",
+        pros: ["Analysis temporarily unavailable"],
+        cons: ["Analysis temporarily unavailable"],
+        key_themes: ["Unable to determine themes"],
+        target_audience: { primary: "All audiences", secondary: "Movie lovers", avoid_if: "None specified" },
+        critics_vs_audience: "Analysis unavailable",
+        recommendation: "Please check individual reviews for detailed opinions",
+        confidence: 0,
+        error: true
+      };
     }
   }
 
