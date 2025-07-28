@@ -97,6 +97,7 @@ app.use('/api/reviews', (req, res, next) => {
 
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/ai', require('./routes/aiRoutes'));
 
 // Health check route
 app.get('/api/health', (req, res) => {
